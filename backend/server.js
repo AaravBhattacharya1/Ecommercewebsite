@@ -1,0 +1,73 @@
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use('/uploads', express.static('uploads'));
+
+// Import routes
+const authRoutes = require('./routes/authRoutes');
+const wholesalerRoutes = require('./routes/wholesalerRoutes');
+const retailerRoutes = require('./routes/retailerRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const productRoutes = require('./routes/productRoutes');
+const cartRoutes = require('./routes/cartRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
+const b2bOrderRoutes = require('./routes/b2bOrderRoutes');
+
+// Use routes
+app.use('/api/auth', authRoutes);
+app.use('/api/wholesaler', wholesalerRoutes);
+app.use('/api/retailer', retailerRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/payment', paymentRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/b2b-orders', b2bOrderRoutes);
+
+app.get('/test-admin', (req, res) => {
+  res.json({ message: 'Admin routes are loaded' });
+});
+
+// Health check
+app.get('/health', (req, res) => {
+    res.json({ status: 'OK', message: 'Server is running' });
+});
+
+const PORT = process.env.PORT || 5000;
+
+mongoose.connect(process.env.MONGO_URI)
+    .then(async () => {
+        console.log('MongoDB connected successfully');
+        
+        // Ensure geospatial index exists for location-based queries
+        const User = require('./models/userModel');
+        try {
+            await User.collection.createIndex({ 'retailerInfo.location': '2dsphere' });
+            console.log('Geospatial index verified/created for retailer locations');
+        } catch (indexError) {
+            // Index might already exist, which is fine
+            if (indexError.code !== 85) { // 85 = IndexOptionsConflict
+                console.log('Note: Geospatial index check:', indexError.message);
+            }
+        }
+        
+        app.get('/test-routes', (req, res) => {
+            res.json({ 
+                message: 'Routes test',
+                retailerRoutes: 'loaded'
+            });
+        });
+
+        // Also add this to check if retailer routes are loading
+        console.log('Retailer routes loaded');
+        app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    })
+    .catch(err => console.error('MongoDB connection error:', err));
